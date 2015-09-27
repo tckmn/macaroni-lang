@@ -2,6 +2,7 @@ extern crate rand;
 
 pub mod macaroni {
     use rand;
+    use std::collections::HashMap;
     use std::io;
     use std::rc::Rc;
 
@@ -51,7 +52,7 @@ pub mod macaroni {
         }
 
         pub fn run(&self, code: String) {
-            self.run_tokens(Macaroni::tokenize(code));
+            self.run_tokens(&Macaroni::tokenize(code));
         }
 
         fn tokenize(code: String) -> Vec<Token> {
@@ -132,15 +133,23 @@ pub mod macaroni {
                 } }).collect::<Vec<Token>>()
         }
 
-        fn run_tokens(&self, tokens: Vec<Token>) {
+        fn run_tokens(&self, program: &[Token]) {
+            let mut label_addrs: HashMap<String, usize> = HashMap::new();
             let mut i: usize = 0;
-            while let Some(t) = tokens.get(i) {
+            while let Some(t) = program.get(i) {
                 match t {
-                    &Token::Op { func: _, arity: _ } => {
-                        self.execute_op(&tokens, &mut i);
+                    &Token::Op { .. } => {
+                        self.execute_op(&program, &mut i);
                     },
-                    &Token::Goto(ref lbl) => {
-                        // TODO
+                    &Token::Label(ref label) => {
+                        label_addrs.entry(label.clone()).or_insert(i);
+                        i += 1;
+                    },
+                    &Token::Goto(ref label) => {
+                        i = label_addrs.entry(label.clone())
+                                       .or_insert_with(|| self.find_label(program, label, i).expect(
+                                            &format!("{:#08x}: is a GOTO to label {:?}, which does not exist", i, label)[..]))
+                                       .clone();
                     },
                     _ => {
                         i += 1;
@@ -149,29 +158,62 @@ pub mod macaroni {
             }
         }
 
-        fn execute_op(&self, tokens: &Vec<Token>, i: &mut usize) -> Option<Variable> {
-            if let Token::Op { ref func, ref arity } = tokens[*i] {
-                let mut args: Vec<Variable> = Vec::with_capacity(*arity);
-                *i += 1;
-                while args.len() < *arity {
-                    match tokens[*i] {
-                        Token::Var(ref v) => {
-                            args.push(v.clone());
-                            *i += 1;
-                        },
-                        Token::Op { func: _, arity: _ } => {
-                            match self.execute_op(tokens, i) {
-                                Some(v) => args.push(v),
-                                None => panic!("put something helpful here")
-                            }
+        fn execute_op(&self, program: &[Token], i: &mut usize) -> Option<Variable> {
+            let (func, arity) = match program.get(i.clone()) {
+                Some(&Token::Op { ref func, arity }) => (func, arity),
+                Some(_) => panic!(format!("Macaroni::execute_op() called on {:#08x}, but instruction is not OP", i)),
+                None => panic!(format!("Macaroni::execute_op() called on out-of-bounds index {:#08x}", i))
+            };
+            *i += 1;
+            let mut args: Vec<Variable> = Vec::with_capacity(arity);
+            while args.len() < arity {
+                match program.get(i.clone()) {
+                    Some(&Token::Var(ref v)) => {
+                        args.push(v.clone());
+                        *i += 1;
+                    },
+                    Some(&Token::Op { .. }) => {
+                        match self.execute_op(program, i) {
+                            Some(v) => args.push(v),
+                            None => panic!(format!("nested OP ending before {:#08x} returned nothing", i))
                         }
-                        _ => panic!("put something helpful here")
+                    }
+                    Some(_) => panic!(format!("{:#08x} is not valid as an OP argument; it should be a VAR or an OP", i)),
+                    None => panic!(format!("{:#08x}: expected OP argument (VAR or OP); found end of program", i))
+                }
+            }
+            func(&args[..])
+        }
 
+        /// Searches the program for the specified label. Returns the position
+        /// of the label in the program, or `None` if it was not found.
+        ///
+        /// `index` merely specifies a starting point. The entire `program`
+        /// is always searched, starting at `index` and wrapping around
+        /// if necessary.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use Token::*;
+        ///
+        /// let print_func = Box::new(|s| println!("{}", s));
+        /// let program = vec![Label(String::from("loop")), Op({ func: print, arity: 1 }), Variable(String::from("Hello, world!")), Goto(String::from("loop"))];
+        /// assert_eq!(find_label(program, String::from("loop"), 0), Some(0));
+        /// assert_eq!(find_label(program, String::from("cleanup"), 0), None);
+        /// ```
+        fn find_label(&self, program: &[Token], desired_label: &str, index: usize) -> Option<usize> {
+            let enumerated = program.iter().enumerate();
+            for (i, token) in enumerated.clone()
+                                        .skip(index)
+                                        .chain(enumerated.take(index)) {
+                if let Token::Label(ref label) = *token {
+                    if label == desired_label {
+                        return Some(i);
                     }
                 }
-                return func(&args[..]);
             }
-            panic!("put something helpful here");
+            None
         }
 
         fn add(args: &[Variable]) -> Option<Variable> {
