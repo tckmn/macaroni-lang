@@ -22,7 +22,7 @@ However, it also has:
 
 ## Operators
 
-Macaroni has all of 21 operators.
+Macaroni has all of 20 operators.
 
 ### Number operators
 
@@ -52,7 +52,6 @@ Macaroni has all of 21 operators.
 - `-` -> `a`: read (a single line, from STDIN)
 - `-` -> `n`: rand (`[0,1)`)
 - `-` -> `n`: time
-- `v*` -> `-`: set
 
 ## Syntax
 
@@ -73,9 +72,24 @@ Macaroni has two methods of control flow: label and goto.
   Additionally, a goto without a label name (simply ``\``) will act as a
   "return" and jump back to the last place a goto was called from.
 
+## Variables
+
+The syntax for setting variables is the following:
+
+    :a 5
+
+This would set the variable `a` to `5`. You can set a variable to any full
+expression:
+
+    :a add multiply 3 pow 2 -1 2
+
+`a` would now be set to `3.5`.
+
+The default value of all variables is `0`.
+
 ## Common operations / combinations
 
-Since Macaroni only has 21 operators, naturally there are tons of them that
+Since Macaroni only has 20 operators, naturally there are tons of them that
 have been left out. Here are some implementations of common functions that you
 would expect to find in other languages.
 
@@ -105,7 +119,7 @@ would expect to find in other languages.
 
 Macaroni's control flow is done entirely through `goto`s. The name "Macaroni"
 is simply a spin-off of the aptly-named ["spaghetti
-code."](https://en.wikipedia.org/wiki/Spaghetti_code).
+code."](https://en.wikipedia.org/wiki/Spaghetti_code)
 
 ## Contributing / credits
 

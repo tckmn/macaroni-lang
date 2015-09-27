@@ -16,6 +16,13 @@ pub mod macaroni {
         Arr(Vec<Val>)
     }
 
+    use std::fmt;
+    impl fmt::Debug for Val {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "thingy")
+        }
+    }
+
     #[derive(Clone)]
     struct Variable {
         val: Val,
@@ -23,11 +30,8 @@ pub mod macaroni {
     }
 
     impl Variable {
-        fn by_name(vars: &HashMap<String, Val>, name: String) -> Variable {
-            Variable {
-                val: vars.get(&name).map_or(Val::Num(0f64), |x| x.clone()),
-                var: Some(name)
-            }
+        fn by_name(name: String) -> Variable {
+            Variable { val: Val::Num(0f64), var: Some(name) }
         }
         fn new_num(n: f64) -> Variable {
             Variable { val: Val::Num(n), var: None }
@@ -42,7 +46,8 @@ pub mod macaroni {
         Var(Variable),
         Op { func: Rc<Fn(&[Variable]) -> Option<Variable>>, arity: usize },
         Label(String),
-        Goto(String)
+        Goto(String),
+        Set(String)
     }
 
     pub struct Macaroni {
@@ -54,8 +59,9 @@ pub mod macaroni {
             Macaroni { vars: HashMap::<String, Val>::new() }
         }
 
-        pub fn run(&self, code: String) {
-            self.run_tokens(&self.tokenize(code));
+        pub fn run(&mut self, code: String) {
+            let tokens = self.tokenize(code);
+            self.run_tokens(&tokens);
         }
 
         fn tokenize(&self, code: String) -> Vec<Token> {
@@ -78,7 +84,7 @@ pub mod macaroni {
                             token = String::new();
                         }
                     },
-                    '"' | '/' | '\\' => {
+                    '"' | '/' | '\\' | ':' => {
                         if token.is_empty() {
                             token.push(ch);
                         } else {
@@ -102,6 +108,9 @@ pub mod macaroni {
                     },
                     '\\' => {
                         Token::Goto(t[1..t.len()].to_string())
+                    },
+                    ':' => {
+                        Token::Set(t[1..t.len()].to_string())
                     },
                     _ => { match &t[..] {
                         "add" => Token::Op {
@@ -131,18 +140,29 @@ pub mod macaroni {
                         "rand" => Token::Op {
                             func: Rc::new(Macaroni::rand), arity: 0
                         },
-                        _ => Token::Var(Variable::by_name(&self.vars, t.clone()))
+                        _ => Token::Var(Variable::by_name(t.clone()))
                     } }
                 } }).collect::<Vec<Token>>()
         }
 
-        fn run_tokens(&self, program: &[Token]) {
+        fn run_tokens(&mut self, program: &[Token]) {
             let mut label_addrs: HashMap<String, usize> = HashMap::new();
             let mut i: usize = 0;
+            let mut to_set: Option<String> = None;
             while let Some(t) = program.get(i) {
                 match t {
+                    &Token::Set(ref var_name) => {
+                        to_set = Some(var_name.clone());
+                        i += 1;
+                    },
                     &Token::Op { .. } => {
-                        self.execute_op(&program, &mut i);
+                        let rtn = self.execute_op(&program, &mut i);
+                        if let Some(ref var_name) = to_set {
+                            self.vars.insert(var_name.clone(),
+                                rtn.expect(&format!("{:08x}: cannot set to \
+                                                    null", i)).val);
+                        }
+                        to_set = None;
                     },
                     &Token::Label(ref label) => {
                         label_addrs.entry(label.clone()).or_insert(i);
@@ -157,7 +177,12 @@ pub mod macaroni {
                                                      not exist", i, label)[..])
                             ).clone();
                     },
-                    _ => {
+                    &Token::Var(ref v) => {
+                        if let Some(ref var_name) = to_set {
+                            let val = self.uv(v).val.clone();
+                            self.vars.insert(var_name.clone(), val);
+                        }
+                        to_set = None;
                         i += 1;
                     }
                 }
@@ -177,7 +202,7 @@ pub mod macaroni {
             while args.len() < arity {
                 match program.get(i.clone()) {
                     Some(&Token::Var(ref v)) => {
-                        args.push(v.clone());
+                        args.push(self.uv(v));
                         *i += 1;
                     },
                     Some(&Token::Op { .. }) => {
@@ -194,6 +219,17 @@ pub mod macaroni {
                 }
             }
             func(&args[..])
+        }
+
+        /// Updates the `val` part of a variable, when `var` is Some().
+        fn uv(&self, v: &Variable) -> Variable {
+            if let Some(ref var_name) = v.var {
+                Variable {
+                    val: self.vars.get(var_name)
+                        .map_or(Val::Num(0f64), |x| x.clone()),
+                    var: v.var.clone()
+                }
+            } else { v.clone() }
         }
 
         /// Searches the program for the specified label. Returns the position
