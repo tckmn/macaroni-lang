@@ -1,7 +1,9 @@
 extern crate rand;
+extern crate time;
 
 pub mod macaroni {
     use rand;
+    use time;
     use std::collections::HashMap;
     use std::io;
     use std::rc::Rc;
@@ -151,6 +153,9 @@ pub mod macaroni {
                         },
                         "rand" => Token::Op {
                             func: Rc::new(Macaroni::rand), arity: 0
+                        },
+                        "time" => Token::Op {
+                            func: Rc::new(Macaroni::time), arity: 0
                         },
                         _ => Token::Var(Variable::by_name(t.clone()))
                     } }
@@ -441,6 +446,12 @@ pub mod macaroni {
 
         fn rand(_: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(rand::random()))
+        }
+
+        fn time(_: &[Variable]) -> Option<Variable> {
+            let t = time::get_time();
+            Some(Variable::new_num((t.sec as f64) + (t.nsec as f64) /
+                                                     1000000000f64))
         }
 
         fn arr_to_string(arr: &Vec<Val>) -> String {

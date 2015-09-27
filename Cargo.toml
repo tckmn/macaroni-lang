@@ -5,3 +5,4 @@ authors = ["KeyboardFire <andy@keyboardfire.com>"]
 
 [dependencies]
 rand = "*"
+time = "*"
