@@ -128,8 +128,8 @@ pub mod macaroni {
                         "tobase" => Token::Op {
                             func: Rc::new(Macaroni::tobase), arity: 2
                         },
-                        "cat" => Token::Op {
-                            func: Rc::new(Macaroni::cat), arity: 2
+                        "concat" => Token::Op {
+                            func: Rc::new(Macaroni::concat), arity: 2
                         },
                         "wrap" => Token::Op {
                             func: Rc::new(Macaroni::wrap), arity: 1
@@ -345,14 +345,14 @@ pub mod macaroni {
             }, Val::Arr(_) => panic!("tobase called with Arr") }
         }
 
-        fn cat(args: &[Variable]) -> Option<Variable> {
+        fn concat(args: &[Variable]) -> Option<Variable> {
             let mut arr = match args[0].val {
                 Val::Arr(ref a) => a,
-                Val::Num(_) => panic!("cat called with Num")
+                Val::Num(_) => panic!("concat called with Num")
             }.clone();
             arr.extend(match args[1].val {
                 Val::Arr(ref a) => a,
-                Val::Num(_) => panic!("cat called with Num")
+                Val::Num(_) => panic!("concat called with Num")
             }.clone().into_iter());
             Some(Variable::new_arr(arr))
         }

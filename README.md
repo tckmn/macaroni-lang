@@ -35,7 +35,7 @@ Macaroni has all of 20 operators.
 ### Array operators
 
 - `al` -> `a`: sort
-- `aa` -> `a`: cat (concatenate)
+- `aa` -> `a`: concat
 - `an` -> `a`: each (a la Ruby `each_cons`, `each_slice` if arg. negative)
 - `al` -> `a`: map
 - `al` -> `a`: index (indeces)
