@@ -137,6 +137,9 @@ pub mod macaroni {
                         "length" => Token::Op {
                             func: Rc::new(Macaroni::length), arity: 1
                         },
+                        "slice" => Token::Op {
+                            func: Rc::new(Macaroni::slice), arity: 4
+                        },
                         "wrap" => Token::Op {
                             func: Rc::new(Macaroni::wrap), arity: 1
                         },
@@ -361,6 +364,34 @@ pub mod macaroni {
                 Val::Num(_) => panic!("concat called with Num")
             }.clone().into_iter());
             Some(Variable::new_arr(arr))
+        }
+
+        fn slice(args: &[Variable]) -> Option<Variable> {
+            Some(Variable::new_arr(match args[0].val {
+                Val::Arr(ref a) => {
+                    let step = match args[3].val {
+                        Val::Num(n) => n,
+                        Val::Arr(_) => panic!("slice called with Arr")
+                    };
+                    let (mut idx, to) = (
+                        match args[if step > 0f64 { 1 } else { 2 }].val {
+                            Val::Num(n) => n,
+                            Val::Arr(_) => panic!("slice called with Arr")
+                        },
+                        match args[if step > 0f64 { 2 } else { 1 }].val {
+                            Val::Num(n) => n,
+                            Val::Arr(_) => panic!("slice called with Arr")
+                        }
+                    );
+                    let mut new_arr = Vec::<Val>::new();
+                    while if step > 0f64 { idx < to } else { idx > to } {
+                        new_arr.push(a[idx as usize].clone());
+                        idx += step;
+                    }
+                    new_arr
+                }
+                Val::Num(_) => panic!("slice called with Num")
+            }))
         }
 
         fn length(args: &[Variable]) -> Option<Variable> {
