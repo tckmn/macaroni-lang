@@ -107,7 +107,13 @@ Macaroni's control flow is done entirely through `goto`s. The name "Macaroni"
 is simply a spin-off of the aptly-named ["spaghetti
 code."](https://en.wikipedia.org/wiki/Spaghetti_code).
 
-## Credits
+## Contributing / credits
+
+If you would like to contribute to Macaroni or suggest ideas, feel free to
+either open an issue / pull request here on Github or ping me `@Doorknob` in
+[The Nineteenth
+Byte](http://chat.stackexchange.com/rooms/240/the-nineteenth-byte), the Stack
+Exchange chatroom for [PPCG](http://codegolf.stackexchange.com).
 
 *Huge* thanks to [@BlacklightShining](https://github.com/BlacklightShining) for
 tons of help with implementing the language and spending their time to save
