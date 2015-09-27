@@ -12,4 +12,5 @@ fn main() {
     mac.run("print wrap 33 print wrap 10".to_string());
     mac.run("print tobase rand 10 print \"\n\"".to_string());
     mac.run("print \"Hello, World!\n\"".to_string());
+    mac.run("print tobase asdf 10 print \" = 0\n\"".to_string());
 }

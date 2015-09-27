@@ -23,8 +23,11 @@ pub mod macaroni {
     }
 
     impl Variable {
-        fn by_name(name: String) -> Variable {
-            Variable { val: Val::Num(0f64), var: Some(name) } // TODO
+        fn by_name(vars: &HashMap<String, Val>, name: String) -> Variable {
+            Variable {
+                val: vars.get(&name).map_or(Val::Num(0f64), |x| x.clone()),
+                var: Some(name)
+            }
         }
         fn new_num(n: f64) -> Variable {
             Variable { val: Val::Num(n), var: None }
@@ -43,19 +46,19 @@ pub mod macaroni {
     }
 
     pub struct Macaroni {
-        vars: Vec<Variable>
+        vars: HashMap<String, Val>
     }
 
     impl Macaroni {
         pub fn new() -> Macaroni {
-            Macaroni { vars: Vec::<Variable>::new() }
+            Macaroni { vars: HashMap::<String, Val>::new() }
         }
 
         pub fn run(&self, code: String) {
-            self.run_tokens(&Macaroni::tokenize(code));
+            self.run_tokens(&self.tokenize(code));
         }
 
-        fn tokenize(code: String) -> Vec<Token> {
+        fn tokenize(&self, code: String) -> Vec<Token> {
             let mut tokens = Vec::<String>::new();
             let mut token = String::new();
             for ch in code.chars() {
@@ -128,7 +131,7 @@ pub mod macaroni {
                         "rand" => Token::Op {
                             func: Rc::new(Macaroni::rand), arity: 0
                         },
-                        _ => Token::Var(Variable::by_name(t.clone()))
+                        _ => Token::Var(Variable::by_name(&self.vars, t.clone()))
                     } }
                 } }).collect::<Vec<Token>>()
         }
