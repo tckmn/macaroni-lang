@@ -54,6 +54,14 @@ Macaroni has all of 21 operators.
 - `-` -> `n`: time
 - `v*` -> `-`: set
 
+## Syntax
+
+The syntax of Macaroni is similar to many other languages, in that operators are called in *prefix notation*. In prefix notation, the name of the operator comes first, then the arguments. For example, `func(arg1, arg2)`.
+
+However, the way Macaroni calls operators is slightly more unique. Each operator has a defined *arity*, which is simply the number of arguments it expects. This eliminates the need for parentheses. So, instead of saying `add(1, mult(2, 3))`, you would just say `add 1 mult 2 3`.
+
+Since each operator has its own arity, there is no ambiguity with this syntax, and a simple recursive parser can be used.
+
 ## Control flow
 
 Macaroni has two methods of control flow: label and goto.
@@ -64,6 +72,34 @@ Macaroni has two methods of control flow: label and goto.
 - Gotos are `\labelname`. They are allowed in the same places as labels are.
   Additionally, a goto without a label name (simply ``\``) will act as a
   "return" and jump back to the last place a goto was called from.
+
+## Common operations / combinations
+
+Since Macaroni only has 21 operators, naturally there are tons of them that
+have been left out. Here are some implementations of common functions that you
+would expect to find in other languages.
+
+- Absolute value of `x`
+
+        map slice " " 0 x 1 a
+        /a set x multiply x -1 \
+
+    A cleverer version that squares and then square roots the number:
+
+        pow pow x 2 pow 2 -1
+
+- `x` modulo `y` (using [a formula found on Wikipedia](https://en.wikipedia.org/wiki/Floor_and_ceiling_functions#Mod_operator))
+
+        add x multiply -1 multiply y floor multiply x pow y -1
+
+- A "while loop" ("calls" `func` while `x` is equal to `0`)
+
+        /WhileLoop
+            map
+                map slice " " x add x 1 1 func
+                WhileLoop
+
+        /func <stuff> \
 
 ## Why "macaroni"?
 
