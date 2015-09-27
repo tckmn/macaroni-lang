@@ -383,8 +383,9 @@ pub mod macaroni {
                             Val::Arr(_) => panic!("slice called with Arr")
                         }
                     );
+                    if step < 0f64 { idx -= 1f64; }
                     let mut new_arr = Vec::<Val>::new();
-                    while if step > 0f64 { idx < to } else { idx > to } {
+                    while if step > 0f64 { idx < to } else { idx >= to } {
                         new_arr.push(a[idx as usize].clone());
                         idx += step;
                     }
