@@ -33,7 +33,7 @@ pub mod macaroni {
 
     enum Token {
         Var(Variable),
-        Op { func: Box<Fn(&[Variable]) -> Option<Variable>>, arity: usize },
+        Op { func: Box<Fn(&[&Variable]) -> Option<Variable>>, arity: usize },
         Label(String),
         Goto(String)
     }
@@ -130,53 +130,47 @@ pub mod macaroni {
         }
 
         fn run_tokens(&self, tokens: Vec<Token>) {
-            let mut stack = Vec::<Token>::new();
-            for t in tokens {
+            let mut i: usize = 0;
+            while let Some(t) = tokens.get(i) {
                 match t {
-                    Token::Label(_) => (),
-                    Token::Goto(lbl) => {
+                    &Token::Op { ref func, ref arity } => {
+                        self.execute_op(&tokens, &mut i);
                     },
-                    _ => {
-                        stack.push(t);
-
-                        'w: while let Some(pos) = stack.iter().rposition(|x|
-                                match *x {
-                                    Token::Op { func: _, arity: _ } => true,
-                                    _ => false
-                                }) {
-                            let args = stack.split_off(pos + 1);
-                            let mut put_back = Vec::<Token>::new();
-                            let mut finished = false;
-                            if let Token::Op { ref func, ref arity } = stack[pos] {
-                                if *arity == args.len() {
-                                    if let Some(rtn) = func(&args.into_iter()
-                                        .map(|t|
-                                            match t {
-                                                Token::Var(v) => v,
-                                                _ => panic!("???")
-                                            })
-                                            .collect::<Vec<Variable>>()[..]) {
-                                        put_back = vec![Token::Var(rtn)];
-                                    }
-                                } else {
-                                    put_back = args;
-                                    finished = true;
-                                }
-                            }
-                            stack.append(&mut put_back);
-                            if finished {
-                                break 'w;
-                            } else {
-                                // get rid of item at pos; i.e., the operator
-                                stack.remove(pos);
-                            }
-                        }
-                    }
+                    &Token::Goto(ref lbl) => {
+                        // TODO
+                    },
+                    _ => {}
                 }
+                i += 1;
             }
         }
 
-        fn add(args: &[Variable]) -> Option<Variable> {
+        fn execute_op(&self, tokens: &Vec<Token>, i: &mut usize) -> Option<Variable> {
+            if let Token::Op { ref func, ref arity } = tokens[*i] {
+                let mut args: Vec<&Variable> = Vec::with_capacity(*arity);
+                *i += 1;
+                while args.len() < *arity {
+                    match tokens[*i] {
+                        Token::Var(ref v) => {
+                            args.push(v);
+                        },
+                        Token::Op { ref func, ref arity } => {
+                            match self.execute_op(tokens, i) {
+                                Some(v) => args.push(v),
+                                None => panic!("put something helpful here")
+                            }
+                        }
+                        _ => panic!("put something helpful here")
+
+                    }
+                    *i += 1;
+                }
+                return func(&args[..]);
+            }
+            panic!("put something helpful here");
+        }
+
+        fn add(args: &[&Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
@@ -186,7 +180,7 @@ pub mod macaroni {
             }))
         }
 
-        fn multiply(args: &[Variable]) -> Option<Variable> {
+        fn multiply(args: &[&Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
@@ -196,14 +190,14 @@ pub mod macaroni {
             }))
         }
 
-        fn floor(args: &[Variable]) -> Option<Variable> {
+        fn floor(args: &[&Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
             }.floor()))
         }
 
-        fn pow(args: &[Variable]) -> Option<Variable> {
+        fn pow(args: &[&Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
@@ -213,7 +207,7 @@ pub mod macaroni {
             })))
         }
 
-        fn tobase(args: &[Variable]) -> Option<Variable> {
+        fn tobase(args: &[&Variable]) -> Option<Variable> {
             match args[0].val { Val::Num(n) => {
                 match args[1].val { Val::Num(m) => {
                     let (base, mut ipart, mut fpart) =
@@ -249,12 +243,12 @@ pub mod macaroni {
             }, Val::Arr(_) => panic!("tobase called with Arr") }
         }
 
-        fn wrap(args: &[Variable]) -> Option<Variable> {
+        fn wrap(args: &[&Variable]) -> Option<Variable> {
             let ref x = args[0];
             Some(Variable::new_arr(vec![x.val.clone()]))
         }
 
-        fn print(args: &[Variable]) -> Option<Variable> {
+        fn print(args: &[&Variable]) -> Option<Variable> {
             let ref x = args[0];
             print!("{}", match x.val {
                 Val::Arr(ref s) => Macaroni::arr_to_string(s),
@@ -263,13 +257,13 @@ pub mod macaroni {
             None
         }
 
-        fn read(_: &[Variable]) -> Option<Variable> {
+        fn read(_: &[&Variable]) -> Option<Variable> {
             let mut line = String::new();
             io::stdin().read_line(&mut line).unwrap();
             Some(Variable::new_arr(Macaroni::string_to_arr(&line)))
         }
 
-        fn rand(_: &[Variable]) -> Option<Variable> {
+        fn rand(_: &[&Variable]) -> Option<Variable> {
             Some(Variable::new_num(rand::random()))
         }
 
