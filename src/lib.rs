@@ -229,27 +229,27 @@ pub mod macaroni {
         fn multiply(args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
-                Val::Arr(_) => panic!("add called with Arr")
+                Val::Arr(_) => panic!("multiply called with Arr")
             } * match args[1].val {
                 Val::Num(n) => n,
-                Val::Arr(_) => panic!("add called with Arr")
+                Val::Arr(_) => panic!("multiply called with Arr")
             }))
         }
 
         fn floor(args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
-                Val::Arr(_) => panic!("add called with Arr")
+                Val::Arr(_) => panic!("floor called with Arr")
             }.floor()))
         }
 
         fn pow(args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
-                Val::Arr(_) => panic!("add called with Arr")
+                Val::Arr(_) => panic!("pow called with Arr")
             }.powf(match args[1].val {
                 Val::Num(n) => n,
-                Val::Arr(_) => panic!("add called with Arr")
+                Val::Arr(_) => panic!("pow called with Arr")
             })))
         }
 
