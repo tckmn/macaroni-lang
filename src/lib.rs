@@ -134,6 +134,9 @@ pub mod macaroni {
                         "concat" => Token::Op {
                             func: Rc::new(Macaroni::concat), arity: 2
                         },
+                        "length" => Token::Op {
+                            func: Rc::new(Macaroni::length), arity: 1
+                        },
                         "wrap" => Token::Op {
                             func: Rc::new(Macaroni::wrap), arity: 1
                         },
@@ -358,6 +361,13 @@ pub mod macaroni {
                 Val::Num(_) => panic!("concat called with Num")
             }.clone().into_iter());
             Some(Variable::new_arr(arr))
+        }
+
+        fn length(args: &[Variable]) -> Option<Variable> {
+            Some(Variable::new_num(match args[0].val {
+                Val::Arr(ref a) => a.len() as f64,
+                Val::Num(_) => panic!("length called with Num")
+            }))
         }
 
         fn wrap(args: &[Variable]) -> Option<Variable> {
