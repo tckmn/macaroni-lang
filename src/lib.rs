@@ -369,25 +369,42 @@ pub mod macaroni {
         fn slice(args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_arr(match args[0].val {
                 Val::Arr(ref a) => {
-                    let step = match args[3].val {
-                        Val::Num(n) => n,
+                    let (step, rev) = match args[3].val {
+                        Val::Num(n) => {
+                            if n > 0f64 {
+                                (n as usize, false)
+                            } else {
+                                (-n as usize, true)
+                            }
+                        },
                         Val::Arr(_) => panic!("slice called with Arr")
                     };
                     let (mut idx, to) = (
-                        match args[if step > 0f64 { 1 } else { 2 }].val {
-                            Val::Num(n) => n,
+                        match args[if rev { 2 } else { 1 }].val {
+                            Val::Num(n) => n as usize,
                             Val::Arr(_) => panic!("slice called with Arr")
                         },
-                        match args[if step > 0f64 { 2 } else { 1 }].val {
-                            Val::Num(n) => n,
+                        match args[if rev { 1 } else { 2 }].val {
+                            Val::Num(n) => n as usize,
                             Val::Arr(_) => panic!("slice called with Arr")
                         }
                     );
-                    if step < 0f64 { idx -= 1f64; }
+                    if rev {
+                        if idx > a.len() { idx = a.len(); }
+                        else if idx > 0 { idx -= 1; }
+                        else { return Some(Variable::new_arr(vec![])); }
+                    }
                     let mut new_arr = Vec::<Val>::new();
-                    while if step > 0f64 { idx < to } else { idx >= to } {
-                        new_arr.push(a[idx as usize].clone());
-                        idx += step;
+                    while if rev { idx >= to } else { idx < to } {
+                        if idx < a.len() {
+                            new_arr.push(a[idx].clone());
+                        } else {
+                            if !rev { break; }
+                        }
+                        if rev {
+                            if step > idx { break; }
+                            idx -= step;
+                        } else { idx += step; }
                     }
                     new_arr
                 }
