@@ -130,33 +130,35 @@ pub mod macaroni {
         }
 
         fn run_tokens(&self, tokens: Vec<Token>) {
-            let mut stack = Vec::<Token>::new();
-            for t in tokens {
+            let mut stack = Vec::<&Token>::new();
+            let mut idx = 0;
+            while idx < tokens.len() {
+                let ref t = tokens[idx];
                 match t {
-                    Token::Label(_) => (),
-                    Token::Goto(lbl) => {
+                    &Token::Label(_) => (),
+                    &Token::Goto(ref lbl) => {
                     },
                     _ => {
                         stack.push(t);
 
                         'w: while let Some(pos) = stack.iter().rposition(|x|
                                 match *x {
-                                    Token::Op { func: _, arity: _ } => true,
+                                    &Token::Op { func: _, arity: _ } => true,
                                     _ => false
                                 }) {
                             let args = stack.split_off(pos + 1);
-                            let mut put_back = Vec::<Token>::new();
+                            let mut put_back = Vec::<&Token>::new();
                             let mut finished = false;
-                            if let Token::Op { ref func, ref arity } = stack[pos] {
+                            if let &Token::Op { ref func, ref arity } = stack[pos] {
                                 if *arity == args.len() {
                                     if let Some(rtn) = func(&args.into_iter()
                                         .map(|t|
                                             match t {
-                                                Token::Var(v) => v,
+                                                &Token::Var(ref v) => v,
                                                 _ => panic!("???")
                                             })
-                                            .collect::<Vec<Variable>>()[..]) {
-                                        put_back = vec![Token::Var(rtn)];
+                                            .collect::<Vec<&Variable>>()[..]) {
+                                        put_back = vec![&Token::Var(rtn)];
                                     }
                                 } else {
                                     put_back = args;
@@ -173,6 +175,7 @@ pub mod macaroni {
                         }
                     }
                 }
+                idx += 1;
             }
         }
 
