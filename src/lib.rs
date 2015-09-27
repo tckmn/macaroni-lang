@@ -3,6 +3,7 @@ extern crate rand;
 pub mod macaroni {
     use rand;
     use std::io;
+    use std::rc::Rc;
 
     const DIGITS: &'static [u8] = b"0123456789";
     const EPSILON: f64 = 0.000001;
@@ -14,6 +15,7 @@ pub mod macaroni {
         Arr(Vec<Val>)
     }
 
+    #[derive(Clone)]
     struct Variable {
         val: Val,
         var: Option<String>
@@ -31,9 +33,10 @@ pub mod macaroni {
         }
     }
 
+    #[derive(Clone)]
     enum Token {
         Var(Variable),
-        Op { func: Box<Fn(&[&Variable]) -> Option<Variable>>, arity: usize },
+        Op { func: Rc<Fn(&[Variable]) -> Option<Variable>>, arity: usize },
         Label(String),
         Goto(String)
     }
@@ -98,31 +101,31 @@ pub mod macaroni {
                     },
                     _ => { match &t[..] {
                         "add" => Token::Op {
-                            func: Box::new(Macaroni::add), arity: 2
+                            func: Rc::new(Macaroni::add), arity: 2
                         },
                         "multiply" => Token::Op {
-                            func: Box::new(Macaroni::multiply), arity: 2
+                            func: Rc::new(Macaroni::multiply), arity: 2
                         },
                         "floor" => Token::Op {
-                            func: Box::new(Macaroni::floor), arity: 1
+                            func: Rc::new(Macaroni::floor), arity: 1
                         },
                         "pow" => Token::Op {
-                            func: Box::new(Macaroni::pow), arity: 2
+                            func: Rc::new(Macaroni::pow), arity: 2
                         },
                         "tobase" => Token::Op {
-                            func: Box::new(Macaroni::tobase), arity: 2
+                            func: Rc::new(Macaroni::tobase), arity: 2
                         },
                         "wrap" => Token::Op {
-                            func: Box::new(Macaroni::wrap), arity: 1
+                            func: Rc::new(Macaroni::wrap), arity: 1
                         },
                         "print" => Token::Op {
-                            func: Box::new(Macaroni::print), arity: 1
+                            func: Rc::new(Macaroni::print), arity: 1
                         },
                         "read" => Token::Op {
-                            func: Box::new(Macaroni::read), arity: 0
+                            func: Rc::new(Macaroni::read), arity: 0
                         },
                         "rand" => Token::Op {
-                            func: Box::new(Macaroni::rand), arity: 0
+                            func: Rc::new(Macaroni::rand), arity: 0
                         },
                         _ => Token::Var(Variable::by_name(t.clone()))
                     } }
@@ -133,28 +136,30 @@ pub mod macaroni {
             let mut i: usize = 0;
             while let Some(t) = tokens.get(i) {
                 match t {
-                    &Token::Op { ref func, ref arity } => {
+                    &Token::Op { func: _, arity: _ } => {
                         self.execute_op(&tokens, &mut i);
                     },
                     &Token::Goto(ref lbl) => {
                         // TODO
                     },
-                    _ => {}
+                    _ => {
+                        i += 1;
+                    }
                 }
-                i += 1;
             }
         }
 
         fn execute_op(&self, tokens: &Vec<Token>, i: &mut usize) -> Option<Variable> {
             if let Token::Op { ref func, ref arity } = tokens[*i] {
-                let mut args: Vec<&Variable> = Vec::with_capacity(*arity);
+                let mut args: Vec<Variable> = Vec::with_capacity(*arity);
                 *i += 1;
                 while args.len() < *arity {
                     match tokens[*i] {
                         Token::Var(ref v) => {
-                            args.push(v);
+                            args.push(v.clone());
+                            *i += 1;
                         },
-                        Token::Op { ref func, ref arity } => {
+                        Token::Op { func: _, arity: _ } => {
                             match self.execute_op(tokens, i) {
                                 Some(v) => args.push(v),
                                 None => panic!("put something helpful here")
@@ -163,14 +168,13 @@ pub mod macaroni {
                         _ => panic!("put something helpful here")
 
                     }
-                    *i += 1;
                 }
                 return func(&args[..]);
             }
             panic!("put something helpful here");
         }
 
-        fn add(args: &[&Variable]) -> Option<Variable> {
+        fn add(args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
@@ -180,7 +184,7 @@ pub mod macaroni {
             }))
         }
 
-        fn multiply(args: &[&Variable]) -> Option<Variable> {
+        fn multiply(args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
@@ -190,14 +194,14 @@ pub mod macaroni {
             }))
         }
 
-        fn floor(args: &[&Variable]) -> Option<Variable> {
+        fn floor(args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
             }.floor()))
         }
 
-        fn pow(args: &[&Variable]) -> Option<Variable> {
+        fn pow(args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
@@ -207,7 +211,7 @@ pub mod macaroni {
             })))
         }
 
-        fn tobase(args: &[&Variable]) -> Option<Variable> {
+        fn tobase(args: &[Variable]) -> Option<Variable> {
             match args[0].val { Val::Num(n) => {
                 match args[1].val { Val::Num(m) => {
                     let (base, mut ipart, mut fpart) =
@@ -243,12 +247,12 @@ pub mod macaroni {
             }, Val::Arr(_) => panic!("tobase called with Arr") }
         }
 
-        fn wrap(args: &[&Variable]) -> Option<Variable> {
+        fn wrap(args: &[Variable]) -> Option<Variable> {
             let ref x = args[0];
             Some(Variable::new_arr(vec![x.val.clone()]))
         }
 
-        fn print(args: &[&Variable]) -> Option<Variable> {
+        fn print(args: &[Variable]) -> Option<Variable> {
             let ref x = args[0];
             print!("{}", match x.val {
                 Val::Arr(ref s) => Macaroni::arr_to_string(s),
@@ -257,13 +261,13 @@ pub mod macaroni {
             None
         }
 
-        fn read(_: &[&Variable]) -> Option<Variable> {
+        fn read(_: &[Variable]) -> Option<Variable> {
             let mut line = String::new();
             io::stdin().read_line(&mut line).unwrap();
             Some(Variable::new_arr(Macaroni::string_to_arr(&line)))
         }
 
-        fn rand(_: &[&Variable]) -> Option<Variable> {
+        fn rand(_: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(rand::random()))
         }
 
