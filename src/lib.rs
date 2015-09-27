@@ -11,7 +11,7 @@ pub mod macaroni {
     const PRECISION: i32 = 10;
 
     #[derive(Clone)]
-    enum Val {
+    pub enum Val {
         Num(f64),
         Arr(Vec<Val>)
     }
@@ -19,7 +19,10 @@ pub mod macaroni {
     use std::fmt;
     impl fmt::Debug for Val {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "thingy")
+            match self {
+                &Val::Num(n) => write!(f, "{}", n),
+                &Val::Arr(ref a) => write!(f, "{:?}", a)
+            }
         }
     }
 
@@ -59,9 +62,9 @@ pub mod macaroni {
             Macaroni { vars: HashMap::<String, Val>::new() }
         }
 
-        pub fn run(&mut self, code: String) {
+        pub fn run(&mut self, code: String) -> Option<Val> {
             let tokens = self.tokenize(code);
-            self.run_tokens(&tokens);
+            self.run_tokens(&tokens)
         }
 
         fn tokenize(&self, code: String) -> Vec<Token> {
@@ -148,24 +151,21 @@ pub mod macaroni {
                 } }).collect::<Vec<Token>>()
         }
 
-        fn run_tokens(&mut self, program: &[Token]) {
+        fn run_tokens(&mut self, program: &[Token]) -> Option<Val> {
             let mut label_addrs: HashMap<String, usize> = HashMap::new();
             let mut i: usize = 0;
             let mut to_set: Option<String> = None;
+            let mut last_val: Option<Val> = None;
             while let Some(t) = program.get(i) {
                 match t {
                     &Token::Set(ref var_name) => {
                         to_set = Some(var_name.clone());
                         i += 1;
+                        continue;
                     },
                     &Token::Op { .. } => {
-                        let rtn = self.execute_op(&program, &mut i);
-                        if let Some(ref var_name) = to_set {
-                            self.vars.insert(var_name.clone(),
-                                rtn.expect(&format!("{:08x}: cannot set to \
-                                                    null", i)).val);
-                        }
-                        to_set = None;
+                        last_val = self.execute_op(&program, &mut i)
+                            .map(|x| x.val);
                     },
                     &Token::Label(ref label) => {
                         label_addrs.entry(label.clone()).or_insert(i);
@@ -181,15 +181,18 @@ pub mod macaroni {
                             ).clone();
                     },
                     &Token::Var(ref v) => {
-                        if let Some(ref var_name) = to_set {
-                            let val = self.uv(v).val.clone();
-                            self.vars.insert(var_name.clone(), val);
-                        }
-                        to_set = None;
+                        last_val = Some(self.uv(v).val.clone());
                         i += 1;
                     }
                 }
+                if let Some(ref var_name) = to_set {
+                    self.vars.insert(var_name.clone(), last_val.expect(
+                        &format!("{:08x}: cannot set to null", i)));
+                    last_val = None;
+                }
+                to_set = None;
             }
+            last_val
         }
 
         fn execute_op(&self, program: &[Token], i: &mut usize) -> Option<Variable> {
