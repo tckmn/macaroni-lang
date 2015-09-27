@@ -167,6 +167,7 @@ pub mod macaroni {
             let mut i: usize = 0;
             let mut to_set: Option<String> = None;
             let mut last_val: Option<Val> = None;
+            let mut call_stack: Vec<usize> = Vec::new();
             while let Some(t) = program.get(i) {
                 match t {
                     &Token::Set(ref var_name) => {
@@ -183,13 +184,20 @@ pub mod macaroni {
                         i += 1;
                     },
                     &Token::Goto(ref label) => {
-                        i = label_addrs.entry(label.clone())
-                            .or_insert_with(||
-                                self.find_label(program, label, i)
-                                    .expect(&format!("{:#08x}: is a GOTO to \
-                                                     label {:?}, which does \
-                                                     not exist", i, label)[..])
-                            ).clone();
+                        if label == "" {
+                            i = call_stack.pop()
+                                .expect(&format!("{:#08x}: nothing to return \
+                                                 to", i));
+                        } else {
+                            call_stack.push(i + 1);
+                            i = label_addrs.entry(label.clone())
+                                .or_insert_with(||
+                                    self.find_label(program, label, i)
+                                        .expect(&format!("{:#08x}: is a GOTO to \
+                                                         label {:?}, which does \
+                                                         not exist", i, label)[..])
+                                ).clone();
+                        }
                     },
                     &Token::Var(ref v) => {
                         last_val = Some(self.uv(v).val.clone());
