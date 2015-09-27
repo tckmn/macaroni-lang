@@ -15,6 +15,7 @@ fn main() {
             print "Hello, World!"
             print tobase asdf 10 print " = 0"
             :a add 1 1 print tobase a 10
+            print cat "foo" "bar"
             "#.lines() {
         if !test.chars().all(char::is_whitespace) {
             mac.run(test.to_string());
