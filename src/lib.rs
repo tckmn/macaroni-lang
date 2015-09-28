@@ -406,9 +406,12 @@ pub mod macaroni {
                 Some(ref x) => x,
                 None => panic!("map called without label")
             };
+            let lbl_idx = self.find_label(lbl, 0).expect(&format!(""));
             Some(Variable::new_arr(arr.into_iter().map(|x| {
                 self.vars.insert("_".to_string(), x.clone());
-                x
+                self.run_tokens(lbl_idx);
+                // there's no way to unset a variable, so we can unwrap
+                self.vars.get("_").unwrap().clone()
             }).collect()))
         }
 
