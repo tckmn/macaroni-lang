@@ -66,7 +66,7 @@ pub mod macaroni {
 
         pub fn run(&mut self, code: String) -> Option<Val> {
             let tokens = self.tokenize(code);
-            self.run_tokens(&tokens)
+            self.run_tokens(&tokens, 0)
         }
 
         fn tokenize(&self, code: String) -> Vec<Token> {
@@ -172,9 +172,9 @@ pub mod macaroni {
                 } }).collect::<Vec<Token>>()
         }
 
-        fn run_tokens(&mut self, program: &[Token]) -> Option<Val> {
+        fn run_tokens(&mut self, program: &[Token], from: usize) -> Option<Val> {
             let mut label_addrs: HashMap<String, usize> = HashMap::new();
-            let mut i: usize = 0;
+            let mut i: usize = from;
             let mut to_set: Option<String> = None;
             let mut last_val: Option<Val> = None;
             let mut call_stack: Vec<usize> = Vec::new();
@@ -197,7 +197,7 @@ pub mod macaroni {
                         if label == "" {
                             if let Some(x) = call_stack.pop() {
                                 i = x;
-                            } else { return None; }
+                            } else { return last_val; }
                         } else {
                             if !noreturn { call_stack.push(i + 1); }
                             i = label_addrs.entry(label.clone())
