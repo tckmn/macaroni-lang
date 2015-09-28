@@ -51,7 +51,7 @@ pub mod macaroni {
         Var(Variable),
         Op { func: Rc<Fn(&[Variable]) -> Option<Variable>>, arity: usize },
         Label(String),
-        Goto(String),
+        Goto { label: String, noreturn: bool },
         Set(String)
     }
 
@@ -112,7 +112,17 @@ pub mod macaroni {
                         Token::Label(t[1..t.len()].to_string())
                     },
                     '\\' => {
-                        Token::Goto(t[1..t.len()].to_string())
+                        if t.starts_with("\\_") {
+                            Token::Goto {
+                                label: t[2..t.len()].to_string(),
+                                noreturn: true
+                            }
+                        } else {
+                            Token::Goto {
+                                label: t[1..t.len()].to_string(),
+                                noreturn: false
+                            }
+                        }
                     },
                     ':' => {
                         Token::Set(t[1..t.len()].to_string())
@@ -183,13 +193,13 @@ pub mod macaroni {
                         label_addrs.entry(label.clone()).or_insert(i);
                         i += 1;
                     },
-                    &Token::Goto(ref label) => {
+                    &Token::Goto { ref label, noreturn } => {
                         if label == "" {
                             i = call_stack.pop()
                                 .expect(&format!("{:#08x}: nothing to return \
                                                  to", i));
                         } else {
-                            call_stack.push(i + 1);
+                            if !noreturn { call_stack.push(i + 1); }
                             i = label_addrs.entry(label.clone())
                                 .or_insert_with(||
                                     self.find_label(program, label, i)
