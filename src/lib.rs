@@ -49,24 +49,29 @@ pub mod macaroni {
     #[derive(Clone)]
     enum Token {
         Var(Variable),
-        Op { func: Rc<Fn(&[Variable]) -> Option<Variable>>, arity: usize },
+        Op { func: Rc<Fn(&Macaroni, &[Variable]) -> Option<Variable>>, arity: usize },
         Label(String),
         Goto { label: String, noreturn: bool },
         Set(String)
     }
 
     pub struct Macaroni {
-        vars: HashMap<String, Val>
+        vars: HashMap<String, Val>,
+        program: Vec<Token>
     }
 
     impl Macaroni {
         pub fn new() -> Macaroni {
-            Macaroni { vars: HashMap::<String, Val>::new() }
+            Macaroni {
+                vars: HashMap::<String, Val>::new(),
+                program: vec![]
+            }
         }
 
         pub fn run(&mut self, code: String) -> Option<Val> {
             let tokens = self.tokenize(code);
-            self.run_tokens(&tokens, 0)
+            self.program = tokens;
+            self.run_tokens(0)
         }
 
         fn tokenize(&self, code: String) -> Vec<Token> {
@@ -146,6 +151,9 @@ pub mod macaroni {
                         "concat" => Token::Op {
                             func: Rc::new(Macaroni::concat), arity: 2
                         },
+                        "map" => Token::Op {
+                            func: Rc::new(Macaroni::map), arity: 2
+                        },
                         "length" => Token::Op {
                             func: Rc::new(Macaroni::length), arity: 1
                         },
@@ -172,13 +180,13 @@ pub mod macaroni {
                 } }).collect::<Vec<Token>>()
         }
 
-        fn run_tokens(&mut self, program: &[Token], from: usize) -> Option<Val> {
+        fn run_tokens(&mut self, from: usize) -> Option<Val> {
             let mut label_addrs: HashMap<String, usize> = HashMap::new();
             let mut i: usize = from;
             let mut to_set: Option<String> = None;
             let mut last_val: Option<Val> = None;
             let mut call_stack: Vec<usize> = Vec::new();
-            while let Some(t) = program.get(i) {
+            while let Some(t) = self.program.get(i) {
                 match t {
                     &Token::Set(ref var_name) => {
                         to_set = Some(var_name.clone());
@@ -186,7 +194,7 @@ pub mod macaroni {
                         continue;
                     },
                     &Token::Op { .. } => {
-                        last_val = self.execute_op(&program, &mut i)
+                        last_val = self.execute_op(&mut i)
                             .map(|x| x.val);
                     },
                     &Token::Label(ref label) => {
@@ -202,7 +210,7 @@ pub mod macaroni {
                             if !noreturn { call_stack.push(i + 1); }
                             i = label_addrs.entry(label.clone())
                                 .or_insert_with(||
-                                    self.find_label(program, label, i)
+                                    self.find_label(label, i)
                                         .expect(&format!("{:#08x}: goto to \
                                                          nonexistent label {:?}",
                                                          i, label)[..])
@@ -224,21 +232,21 @@ pub mod macaroni {
             last_val
         }
 
-        fn execute_op(&self, program: &[Token], i: &mut usize) -> Option<Variable> {
-            let (func, arity) = match program.get(i.clone()) {
+        fn execute_op(&self, i: &mut usize) -> Option<Variable> {
+            let (func, arity) = match self.program.get(i.clone()) {
                 Some(&Token::Op { ref func, arity }) => (func, arity),
                 _ => unreachable!()
             };
             *i += 1;
             let mut args: Vec<Variable> = Vec::with_capacity(arity);
             while args.len() < arity {
-                match program.get(i.clone()) {
+                match self.program.get(i.clone()) {
                     Some(&Token::Var(ref v)) => {
                         args.push(self.uv(v));
                         *i += 1;
                     },
                     Some(&Token::Op { .. }) => {
-                        match self.execute_op(program, i) {
+                        match self.execute_op(i) {
                             Some(v) => args.push(v),
                             None => panic!("{:#08x}: cannot pass null to \
                                            operator", i)
@@ -250,7 +258,7 @@ pub mod macaroni {
                                    end of program", i)
                 }
             }
-            func(&args[..])
+            func(&self, &args[..])
         }
 
         /// Updates the `val` part of a variable, when `var` is Some().
@@ -286,9 +294,9 @@ pub mod macaroni {
         /// assert_eq!(find_label(program, String::from("loop"), 0), Some(0));
         /// assert_eq!(find_label(program, String::from("cleanup"), 0), None);
         /// ```
-        fn find_label(&self, program: &[Token], desired_label: &str,
+        fn find_label(&self, desired_label: &str,
                 index: usize) -> Option<usize> {
-            let enumerated = program.iter().enumerate();
+            let enumerated = self.program.iter().enumerate();
             for (i, token) in enumerated.clone()
                                         .skip(index)
                                         .chain(enumerated.take(index)) {
@@ -301,7 +309,7 @@ pub mod macaroni {
             None
         }
 
-        fn add(args: &[Variable]) -> Option<Variable> {
+        fn add(&self, args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("add called with Arr")
@@ -311,7 +319,7 @@ pub mod macaroni {
             }))
         }
 
-        fn multiply(args: &[Variable]) -> Option<Variable> {
+        fn multiply(&self, args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("multiply called with Arr")
@@ -321,14 +329,14 @@ pub mod macaroni {
             }))
         }
 
-        fn floor(args: &[Variable]) -> Option<Variable> {
+        fn floor(&self, args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("floor called with Arr")
             }.floor()))
         }
 
-        fn pow(args: &[Variable]) -> Option<Variable> {
+        fn pow(&self, args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Num(n) => n,
                 Val::Arr(_) => panic!("pow called with Arr")
@@ -338,7 +346,7 @@ pub mod macaroni {
             })))
         }
 
-        fn tobase(args: &[Variable]) -> Option<Variable> {
+        fn tobase(&self, args: &[Variable]) -> Option<Variable> {
             match args[0].val { Val::Num(n) => {
                 match args[1].val { Val::Num(m) => {
                     let (base, mut ipart, mut fpart) =
@@ -374,7 +382,7 @@ pub mod macaroni {
             }, Val::Arr(_) => panic!("tobase called with Arr") }
         }
 
-        fn concat(args: &[Variable]) -> Option<Variable> {
+        fn concat(&self, args: &[Variable]) -> Option<Variable> {
             let mut arr = match args[0].val {
                 Val::Arr(ref a) => a,
                 Val::Num(_) => panic!("concat called with Num")
@@ -386,7 +394,21 @@ pub mod macaroni {
             Some(Variable::new_arr(arr))
         }
 
-        fn slice(args: &[Variable]) -> Option<Variable> {
+        fn map(&self, args: &[Variable]) -> Option<Variable> {
+            let arr = match args[0].val {
+                Val::Arr(ref a) => a,
+                Val::Num(_) => panic!("map called with Num")
+            }.clone();
+            let lbl = match args[1].var {
+                Some(ref x) => x,
+                None => panic!("map called without label")
+            };
+            Some(Variable::new_arr(arr.into_iter().map(|x| {
+                x
+            }).collect()))
+        }
+
+        fn slice(&self, args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_arr(match args[0].val {
                 Val::Arr(ref a) => {
                     let (step, rev) = match args[3].val {
@@ -432,19 +454,19 @@ pub mod macaroni {
             }))
         }
 
-        fn length(args: &[Variable]) -> Option<Variable> {
+        fn length(&self, args: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(match args[0].val {
                 Val::Arr(ref a) => a.len() as f64,
                 Val::Num(_) => panic!("length called with Num")
             }))
         }
 
-        fn wrap(args: &[Variable]) -> Option<Variable> {
+        fn wrap(&self, args: &[Variable]) -> Option<Variable> {
             let ref x = args[0];
             Some(Variable::new_arr(vec![x.val.clone()]))
         }
 
-        fn print(args: &[Variable]) -> Option<Variable> {
+        fn print(&self, args: &[Variable]) -> Option<Variable> {
             let ref x = args[0];
             print!("{}", match x.val {
                 Val::Arr(ref s) => Macaroni::arr_to_string(s),
@@ -453,17 +475,17 @@ pub mod macaroni {
             None
         }
 
-        fn read(_: &[Variable]) -> Option<Variable> {
+        fn read(&self, _: &[Variable]) -> Option<Variable> {
             let mut line = String::new();
             io::stdin().read_line(&mut line).unwrap();
             Some(Variable::new_arr(Macaroni::string_to_arr(&line)))
         }
 
-        fn rand(_: &[Variable]) -> Option<Variable> {
+        fn rand(&self, _: &[Variable]) -> Option<Variable> {
             Some(Variable::new_num(rand::random()))
         }
 
-        fn time(_: &[Variable]) -> Option<Variable> {
+        fn time(&self, _: &[Variable]) -> Option<Variable> {
             let t = time::get_time();
             Some(Variable::new_num((t.sec as f64) + (t.nsec as f64) /
                                                      1000000000f64))
