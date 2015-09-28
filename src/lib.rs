@@ -195,9 +195,9 @@ pub mod macaroni {
                     },
                     &Token::Goto { ref label, noreturn } => {
                         if label == "" {
-                            i = call_stack.pop()
-                                .expect(&format!("{:#08x}: nothing to return \
-                                                 to", i));
+                            if let Some(x) = call_stack.pop() {
+                                i = x;
+                            } else { return None; }
                         } else {
                             if !noreturn { call_stack.push(i + 1); }
                             i = label_addrs.entry(label.clone())
