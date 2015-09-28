@@ -203,9 +203,9 @@ pub mod macaroni {
                             i = label_addrs.entry(label.clone())
                                 .or_insert_with(||
                                     self.find_label(program, label, i)
-                                        .expect(&format!("{:#08x}: is a GOTO to \
-                                                         label {:?}, which does \
-                                                         not exist", i, label)[..])
+                                        .expect(&format!("{:#08x}: goto to \
+                                                         nonexistent label {:?}",
+                                                         i, label)[..])
                                 ).clone();
                         }
                     },
@@ -227,10 +227,7 @@ pub mod macaroni {
         fn execute_op(&self, program: &[Token], i: &mut usize) -> Option<Variable> {
             let (func, arity) = match program.get(i.clone()) {
                 Some(&Token::Op { ref func, arity }) => (func, arity),
-                Some(_) => panic!("Macaroni::execute_op() called on {:#08x}, \
-                                  but instruction is not OP", i),
-                None => panic!("Macaroni::execute_op() called on out-of-bounds \
-                               index {:#08x}", i)
+                _ => unreachable!()
             };
             *i += 1;
             let mut args: Vec<Variable> = Vec::with_capacity(arity);
@@ -243,14 +240,14 @@ pub mod macaroni {
                     Some(&Token::Op { .. }) => {
                         match self.execute_op(program, i) {
                             Some(v) => args.push(v),
-                            None => panic!("nested OP ending before {:#08x} \
-                                           returned nothing", i)
+                            None => panic!("{:#08x}: cannot pass null to \
+                                           operator", i)
                         }
                     }
-                    Some(_) => panic!("{:#08x} is not valid as an OP argument; \
-                                      it should be a VAR or an OP", i),
-                    None => panic!("{:#08x}: expected OP argument (VAR or OP); \
-                                   found end of program", i)
+                    Some(_) => panic!("{:#08x}: cannot pass non-variable to \
+                                      operator", i),
+                    None => panic!("{:#08x}: expected operator arugment, found \
+                                   end of program", i)
                 }
             }
             func(&args[..])
