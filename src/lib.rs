@@ -51,8 +51,7 @@ pub mod macaroni {
         Var(Variable),
         Op { func: Rc<Fn(&mut Macaroni, &[Variable]) -> Option<Variable>>, arity: usize },
         Label(String),
-        Goto { label: String, noreturn: bool },
-        Set(String)
+        Goto { label: String, noreturn: bool }
     }
 
     pub struct Macaroni {
@@ -94,7 +93,7 @@ pub mod macaroni {
                             token = String::new();
                         }
                     },
-                    '"' | '/' | '\\' | ':' => {
+                    '"' | '/' | '\\' => {
                         if token.is_empty() {
                             token.push(ch);
                         } else {
@@ -128,9 +127,6 @@ pub mod macaroni {
                                 noreturn: false
                             }
                         }
-                    },
-                    ':' => {
-                        Token::Set(t[1..t.len()].to_string())
                     },
                     _ => { match &t[..] {
                         "add" => Token::Op {
@@ -175,6 +171,9 @@ pub mod macaroni {
                         "time" => Token::Op {
                             func: Rc::new(Macaroni::time), arity: 0
                         },
+                        "set" => Token::Op {
+                            func: Rc::new(Macaroni::set), arity: 2
+                        },
                         _ => Token::Var(Variable::by_name(t.clone()))
                     } }
                 } }).collect::<Vec<Token>>()
@@ -183,7 +182,6 @@ pub mod macaroni {
         fn run_tokens(&mut self, from: usize) -> Option<Val> {
             let mut label_addrs: HashMap<String, usize> = HashMap::new();
             let mut i: usize = from;
-            let mut to_set: Option<String> = None;
             let mut last_val: Option<Val> = None;
             let mut call_stack: Vec<usize> = Vec::new();
             loop {
@@ -191,11 +189,6 @@ pub mod macaroni {
                     x.clone()
                 } else { break };
                 match t {
-                    Token::Set(var_name) => {
-                        to_set = Some(var_name);
-                        i += 1;
-                        continue;
-                    },
                     Token::Op { .. } => {
                         last_val = self.execute_op(&mut i)
                             .map(|x| x.val);
@@ -225,12 +218,6 @@ pub mod macaroni {
                         i += 1;
                     }
                 }
-                if let Some(ref var_name) = to_set {
-                    self.vars.insert(var_name.clone(), last_val.expect(
-                        &format!("{:08x}: cannot set to null", i)));
-                    last_val = None;
-                }
-                to_set = None;
             }
             last_val
         }
@@ -496,6 +483,13 @@ pub mod macaroni {
             let t = time::get_time();
             Some(Variable::new_num((t.sec as f64) + (t.nsec as f64) /
                                                      1000000000f64))
+        }
+        fn set(&mut self, args: &[Variable]) -> Option<Variable> {
+            self.vars.insert(args[0].clone().var.expect("cannot set a literal"),
+                args[1].clone().val);
+            Some(Variable {
+                val: args[1].clone().val, var: args[0].clone().var
+            })
         }
 
         fn arr_to_string(arr: &Vec<Val>) -> String {
