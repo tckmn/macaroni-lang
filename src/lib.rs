@@ -144,6 +144,9 @@ pub mod macaroni {
                         "tobase" => Token::Op {
                             func: Rc::new(Macaroni::tobase), arity: 2
                         },
+                        "sort" => Token::Op {
+                            func: Rc::new(Macaroni::sort), arity: 2
+                        },
                         "concat" => Token::Op {
                             func: Rc::new(Macaroni::concat), arity: 2
                         },
@@ -167,6 +170,9 @@ pub mod macaroni {
                         },
                         "wrap" => Token::Op {
                             func: Rc::new(Macaroni::wrap), arity: 1
+                        },
+                        "unwrap" => Token::Op {
+                            func: Rc::new(Macaroni::unwrap), arity: 1
                         },
                         "print" => Token::Op {
                             func: Rc::new(Macaroni::print), arity: 1
@@ -381,6 +387,29 @@ pub mod macaroni {
             }, Val::Arr(_) => panic!("tobase called with Arr") }
         }
 
+        fn sort(&mut self, args: &[Variable]) -> Option<Variable> {
+            let mut arr = match args[0].val {
+                Val::Arr(ref a) => a,
+                Val::Num(_) => panic!("map called with Num")
+            }.clone();
+            let lbl = match args[1].var {
+                Some(ref x) => x,
+                None => panic!("map called without label")
+            };
+            let lbl_idx = self.find_label(lbl, 0).expect(&format!(""));
+            arr.sort_by(|a, b| {
+                self.vars.insert("_".to_string(),
+                    Val::Arr(vec![a.clone(), b.clone()]));
+                self.run_tokens(lbl_idx);
+                // there's no way to unset a variable, so we can unwrap
+                match self.vars.get("_").unwrap() {
+                    &Val::Num(n) => n.partial_cmp(&0f64).unwrap(),
+                    &Val::Arr(_) => panic!("sort predicate returned Arr")
+                }
+            });
+            Some(Variable::new_arr(arr))
+        }
+
         fn concat(&mut self, args: &[Variable]) -> Option<Variable> {
             let mut arr = match args[0].val {
                 Val::Arr(ref a) => a,
@@ -435,7 +464,6 @@ pub mod macaroni {
             Some(Variable::new_arr(arr.into_iter().map(|x| {
                 self.vars.insert("_".to_string(), x.clone());
                 self.run_tokens(lbl_idx);
-                // there's no way to unset a variable, so we can unwrap
                 self.vars.get("_").unwrap().clone()
             }).collect()))
         }
@@ -547,6 +575,19 @@ pub mod macaroni {
         fn wrap(&mut self, args: &[Variable]) -> Option<Variable> {
             let ref x = args[0];
             Some(Variable::new_arr(vec![x.val.clone()]))
+        }
+
+        fn unwrap(&mut self, args: &[Variable]) -> Option<Variable> {
+            match args[0].val {
+                Val::Arr(ref a) => {
+                    if a.len() == 1 {
+                        Some(Variable { val: a[0].clone(), var: None })
+                    } else {
+                        panic!("unwrap called with Arr of length != 1")
+                    }
+                },
+                Val::Num(_) => panic!("unwrap called with Num")
+            }
         }
 
         fn print(&mut self, args: &[Variable]) -> Option<Variable> {
