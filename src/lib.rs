@@ -147,6 +147,9 @@ pub mod macaroni {
                         "concat" => Token::Op {
                             func: Rc::new(Macaroni::concat), arity: 2
                         },
+                        "each" => Token::Op {
+                            func: Rc::new(Macaroni::each), arity: 2
+                        },
                         "map" => Token::Op {
                             func: Rc::new(Macaroni::map), arity: 2
                         },
@@ -387,6 +390,35 @@ pub mod macaroni {
                 Val::Arr(ref a) => a,
                 Val::Num(_) => panic!("concat called with Num")
             }.clone().into_iter());
+            Some(Variable::new_arr(arr))
+        }
+
+        fn each(&mut self, args: &[Variable]) -> Option<Variable> {
+            let a = match args[0].val {
+                Val::Arr(ref a) => a,
+                Val::Num(_) => panic!("each called with Num")
+            }.clone();
+            let (neg, n) = match args[1].val {
+                Val::Num(n) => (n < 0f64, if n < 0f64 { -n } else { n } as usize),
+                Val::Arr(_) => panic!("each called with Arr")
+            };
+            let mut arr = Vec::<Val>::new();
+            if neg {
+                // full subarrays
+                for i in 0..a.len() / n {
+                    arr.push(Val::Arr(Vec::from(&a[i * n..(i + 1) * n])));
+                }
+                // perhaps one partial subarray
+                if a.len() % n != 0 {
+                    arr.push(Val::Arr(Vec::from(&a[a.len() / n * n..a.len()])));
+                }
+            } else {
+                if a.len() >= n {
+                    for i in 0..a.len() - n + 1 {
+                        arr.push(Val::Arr(Vec::from(&a[i..i + n])));
+                    }
+                }
+            }
             Some(Variable::new_arr(arr))
         }
 
