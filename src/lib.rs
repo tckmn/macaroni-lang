@@ -8,7 +8,7 @@ pub mod macaroni {
     use std::io;
     use std::rc::Rc;
 
-    const DIGITS: &'static [u8] = b"0123456789";
+    const DIGITS: &'static [u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     const EPSILON: f64 = 0.000001;
     const PRECISION: i32 = 10;
 
@@ -155,6 +155,9 @@ pub mod macaroni {
                         },
                         "length" => Token::Op {
                             func: Rc::new(Macaroni::length), arity: 1
+                        },
+                        "frombase" => Token::Op {
+                            func: Rc::new(Macaroni::frombase), arity: 2
                         },
                         "slice" => Token::Op {
                             func: Rc::new(Macaroni::slice), arity: 4
@@ -476,6 +479,37 @@ pub mod macaroni {
                 Val::Arr(ref a) => a.len() as f64,
                 Val::Num(_) => panic!("length called with Num")
             }))
+        }
+
+        fn frombase(&mut self, args: &[Variable]) -> Option<Variable> {
+            match args[0].val { Val::Arr(ref s) => {
+                match args[1].val { Val::Num(n) => {
+                    let (base, mut nb) = (n as i64, Macaroni::arr_to_string(&s));
+
+                    // handle negatives and decimals
+                    let neg = nb.starts_with("-");
+                    if neg { nb.remove(0); }
+
+                    let sub_pos = if let Some(dot_pos) = nb.find('.') {
+                        nb.remove(dot_pos);
+                        dot_pos - 1
+                    } else {
+                        nb.len() - 1
+                    };
+
+                    // convert cleaned-up string
+                    let mut n = 0f64;
+                    for i in (0..nb.len()).rev() {
+                        let c = nb.chars().nth(i).unwrap().to_uppercase()
+                            .next().unwrap() as u8;
+                        let digit = DIGITS.iter().position(|d| *d == c)
+                            .expect(&format!("unrecognized digit {}", c)) as f64;
+                        n += digit * base.pow((sub_pos - i) as u32) as f64;
+                    }
+
+                    Some(Variable::new_num(n))
+                }, Val::Arr(_) => panic!("frombase called with Arr") }
+            }, Val::Num(_) => panic!("frombase called with Num") }
         }
 
         fn wrap(&mut self, args: &[Variable]) -> Option<Variable> {
