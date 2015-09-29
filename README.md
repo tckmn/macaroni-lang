@@ -22,7 +22,7 @@ However, it also has:
 
 ## Operators
 
-Macaroni has all of 20 operators.
+Macaroni has all of 22 operators.
 
 ### Number operators
 
@@ -48,6 +48,7 @@ Macaroni has all of 20 operators.
 ### Other operators
 
 - `*` -> `a`: wrap (in array)
+- `a` -> `*`: unwrap
 - `a` -> `-`: print
 - `-` -> `a`: read (a single line, from STDIN)
 - `-` -> `n`: rand (`[0,1)`)
@@ -75,7 +76,7 @@ Macaroni has two methods of control flow: label and goto.
 
 ## Common operations / combinations
 
-Since Macaroni only has 20 operators, naturally there are tons of them that
+Since Macaroni only has 22 operators, naturally there are tons of them that
 have been left out. Here are some implementations of common functions that you
 would expect to find in other languages.
 
