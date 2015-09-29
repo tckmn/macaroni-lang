@@ -150,6 +150,9 @@ pub mod macaroni {
                         "map" => Token::Op {
                             func: Rc::new(Macaroni::map), arity: 2
                         },
+                        "index" => Token::Op {
+                            func: Rc::new(Macaroni::index), arity: 2
+                        },
                         "length" => Token::Op {
                             func: Rc::new(Macaroni::length), arity: 1
                         },
@@ -400,6 +403,26 @@ pub mod macaroni {
                 // there's no way to unset a variable, so we can unwrap
                 self.vars.get("_").unwrap().clone()
             }).collect()))
+        }
+
+        fn index(&mut self, args: &[Variable]) -> Option<Variable> {
+            let arr = match args[0].val {
+                Val::Arr(ref a) => a,
+                Val::Num(_) => panic!("index called with Num")
+            }.clone();
+            let lbl = match args[1].var {
+                Some(ref x) => x,
+                None => panic!("index called without label")
+            };
+            let lbl_idx = self.find_label(lbl, 0).expect(&format!(""));
+            Some(Variable::new_arr(arr.into_iter().enumerate().filter(|&(_, ref x)| {
+                self.vars.insert("_".to_string(), x.clone());
+                self.run_tokens(lbl_idx);
+                match self.vars.get("_").unwrap() {
+                    &Val::Arr(ref a) => !a.is_empty(),
+                    &Val::Num(n) => n != 0f64
+                }
+            }).map(|(i, _)| Val::Num(i as f64)).collect()))
         }
 
         fn slice(&mut self, args: &[Variable]) -> Option<Variable> {
