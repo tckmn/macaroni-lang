@@ -52,6 +52,7 @@ Macaroni has all of 20 operators.
 - `-` -> `a`: read (a single line, from STDIN)
 - `-` -> `n`: rand (`[0,1)`)
 - `-` -> `n`: time
+- `v*` -> `-`: set
 
 ## Syntax
 
@@ -71,21 +72,6 @@ Macaroni has two methods of control flow: label and goto.
 - Gotos are `\labelname`. They are allowed in the same places as labels are.
   Additionally, a goto without a label name (simply ``\``) will act as a
   "return" and jump back to the last place a goto was called from.
-
-## Variables
-
-The syntax for setting variables is the following:
-
-    :a 5
-
-This would set the variable `a` to `5`. You can set a variable to any full
-expression:
-
-    :a add multiply 3 pow 2 -1 2
-
-`a` would now be set to `3.5`.
-
-The default value of all variables is `0`.
 
 ## Common operations / combinations
 
