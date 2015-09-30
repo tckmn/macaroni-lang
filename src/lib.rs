@@ -56,16 +56,22 @@ pub mod macaroni {
         Label
     }
 
+    struct State {
+        i: usize,
+        call_stack: Vec<usize>
+    }
+
     pub struct Macaroni {
         vars: HashMap<String, Val>,
-        program: Vec<Token>
+        program: Vec<Token>,
+        states: Vec<State>
     }
 
     impl Macaroni {
         pub fn new() -> Macaroni {
             Macaroni {
                 vars: HashMap::<String, Val>::new(),
-                program: vec![]
+                program: vec![], states: vec![]
             }
         }
 
@@ -188,49 +194,49 @@ pub mod macaroni {
         }
 
         fn run_tokens(&mut self, from: usize) -> Option<Val> {
-            let mut i: usize = from;
+            self.states.insert(0, State { i: from, call_stack: vec![] });
             let mut last_val: Option<Val> = None;
             loop {
-                let t = if let Some(x) = self.program.get(i) {
+                let t = if let Some(x) = self.program.get(self.states[0].i) {
                     x.clone()
                 } else { break };
                 match t {
                     Token::Op { .. } => {
-                        last_val = self.execute_op(&mut i)
-                            .map(|x| x.val);
+                        last_val = self.execute_op().map(|x| x.val);
                     },
                     Token::Var(ref v) => {
                         last_val = Some(self.uv(v).val);
-                        i += 1;
+                        self.states[0].i += 1;
                     },
                     Token::Label => {
-                        i += 2;
+                        self.states[0].i += 2;
                     }
                 }
             }
             last_val
         }
 
-        fn execute_op(&mut self, i: &mut usize) -> Option<Variable> {
-            let (func, arity) = match self.program.get(*i).unwrap().clone() {
+        fn execute_op(&mut self) -> Option<Variable> {
+            let (func, arity) = match self.program.get(self.states[0].i)
+                    .unwrap().clone() {
                 Token::Op { func, arity } => (func, arity),
                 _ => unreachable!()
             };
-            *i += 1;
+            self.states[0].i += 1;
             let mut args: Vec<Variable> = Vec::with_capacity(arity);
             while args.len() < arity {
-                match self.program.get(*i).expect(
-                        &format!("{:#08x}: expected operator arugment, found \
-                                 end of program", i)).clone() {
+                match self.program.get(self.states[0].i).expect(
+                        &format!("{:#08x}: expected operator argument, found \
+                                 end of program", self.states[0].i)).clone() {
                     Token::Var(ref v) => {
                         args.push(self.uv(v));
-                        *i += 1;
+                        self.states[0].i += 1;
                     },
                     Token::Op { .. } => {
-                        match self.execute_op(i) {
+                        match self.execute_op() {
                             Some(v) => args.push(v),
                             None => panic!("{:#08x}: cannot pass null to \
-                                           operator", i)
+                                           operator", self.states[0].i)
                         }
                     },
                     Token::Label => panic!("{:#08x}: cannot pass label to \
