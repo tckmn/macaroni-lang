@@ -213,6 +213,7 @@ pub mod macaroni {
                     }
                 }
             }
+            self.states.remove(0);
             last_val
         }
 
@@ -585,11 +586,24 @@ pub mod macaroni {
         }
 
         fn goto(&mut self, args: &[Variable]) -> Option<Variable> {
-            unimplemented!()
+            match args[0].var {
+                Some(ref label) => {
+                    let old_i = self.states[0].i;
+                    self.states[0].call_stack.push(old_i);
+                    self.states[0].i = self.find_label(label)
+                        .expect(&format!("goto unknown label"));
+                },
+                None => panic!("cannot goto literal")
+            }
+            None
         }
 
         fn return_(&mut self, _: &[Variable]) -> Option<Variable> {
-            unimplemented!()
+            self.states[0].i = match self.states[0].call_stack.pop() {
+                Some(i) => i,
+                None => self.program.len()
+            };
+            None
         }
 
         fn arr_to_string(arr: &Vec<Val>) -> String {
