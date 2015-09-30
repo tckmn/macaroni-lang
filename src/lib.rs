@@ -49,9 +49,11 @@ pub mod macaroni {
     #[derive(Clone)]
     enum Token {
         Var(Variable),
-        Op { func: Rc<Fn(&mut Macaroni, &[Variable]) -> Option<Variable>>, arity: usize },
-        Label(String),
-        Goto { label: String, noreturn: bool }
+        Op {
+            func: Rc<Fn(&mut Macaroni, &[Variable]) -> Option<Variable>>,
+            arity: usize
+        },
+        Label
     }
 
     pub struct Macaroni {
@@ -111,22 +113,6 @@ pub mod macaroni {
                     '"' => {
                         Token::Var(Variable::new_arr(Macaroni::string_to_arr(
                             &t[1..t.len() - 1].to_string())))
-                    },
-                    '/' => {
-                        Token::Label(t[1..t.len()].to_string())
-                    },
-                    '\\' => {
-                        if t.starts_with("\\_") {
-                            Token::Goto {
-                                label: t[2..t.len()].to_string(),
-                                noreturn: true
-                            }
-                        } else {
-                            Token::Goto {
-                                label: t[1..t.len()].to_string(),
-                                noreturn: false
-                            }
-                        }
                     },
                     _ => { match &t[..] {
                         "add" => Token::Op {
@@ -189,16 +175,21 @@ pub mod macaroni {
                         "set" => Token::Op {
                             func: Rc::new(Macaroni::set), arity: 2
                         },
+                        "label" => Token::Label,
+                        "goto" => Token::Op {
+                            func: Rc::new(Macaroni::goto), arity: 1
+                        },
+                        "return" => Token::Op {
+                            func: Rc::new(Macaroni::return_), arity: 0
+                        },
                         _ => Token::Var(Variable::by_name(t.clone()))
                     } }
                 } }).collect::<Vec<Token>>()
         }
 
         fn run_tokens(&mut self, from: usize) -> Option<Val> {
-            let mut label_addrs: HashMap<String, usize> = HashMap::new();
             let mut i: usize = from;
             let mut last_val: Option<Val> = None;
-            let mut call_stack: Vec<usize> = Vec::new();
             loop {
                 let t = if let Some(x) = self.program.get(i) {
                     x.clone()
@@ -208,29 +199,12 @@ pub mod macaroni {
                         last_val = self.execute_op(&mut i)
                             .map(|x| x.val);
                     },
-                    Token::Label(label) => {
-                        label_addrs.entry(label).or_insert(i);
-                        i += 1;
-                    },
-                    Token::Goto { label, noreturn } => {
-                        if label == "" {
-                            if let Some(x) = call_stack.pop() {
-                                i = x;
-                            } else { return last_val; }
-                        } else {
-                            if !noreturn { call_stack.push(i + 1); }
-                            i = *label_addrs.entry(label.clone())
-                                .or_insert_with(||
-                                    self.find_label(&label, i)
-                                        .expect(&format!("{:#08x}: goto to \
-                                                         nonexistent label {:?}",
-                                                         i, label)[..])
-                                );
-                        }
-                    },
                     Token::Var(ref v) => {
                         last_val = Some(self.uv(v).val);
                         i += 1;
+                    },
+                    Token::Label => {
+                        i += 2;
                     }
                 }
             }
@@ -258,9 +232,9 @@ pub mod macaroni {
                             None => panic!("{:#08x}: cannot pass null to \
                                            operator", i)
                         }
-                    }
-                    _ => panic!("{:#08x}: cannot pass non-variable to \
-                                operator", i)
+                    },
+                    Token::Label => panic!("{:#08x}: cannot pass label to \
+                                           operator", 1)
                 }
             }
             func(self, &args[..])
@@ -277,38 +251,19 @@ pub mod macaroni {
             } else { v.clone() }
         }
 
-        /// Searches the program for the specified label. Returns the position
-        /// of the label in the program, or `None` if it was not found.
-        ///
-        /// `index` merely specifies a starting point. The entire `program`
-        /// is always searched, starting at `index` and wrapping around
-        /// if necessary.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use Token::*;
-        ///
-        /// let print_func = Box::new(|s| println!("{}", s));
-        /// let program = vec![
-        ///     Label(String::from("loop")),
-        ///     Op({ func: print, arity: 1 }),
-        ///     Variable(String::from("Hello, world!")),
-        ///     Goto(String::from("loop"))
-        /// ];
-        /// assert_eq!(find_label(program, String::from("loop"), 0), Some(0));
-        /// assert_eq!(find_label(program, String::from("cleanup"), 0), None);
-        /// ```
-        fn find_label(&self, desired_label: &str,
-                index: usize) -> Option<usize> {
-            let enumerated = self.program.iter().enumerate();
-            for (i, token) in enumerated.clone()
-                                        .skip(index)
-                                        .chain(enumerated.take(index)) {
-                if let Token::Label(ref label) = *token {
-                    if label == desired_label {
-                        return Some(i);
-                    }
+        fn find_label(&self, desired_label: &str) -> Option<usize> {
+            for i in 0..self.program.len() - 1 {
+                match self.program[i] {
+                    Token::Label => match self.program[i + 1] {
+                        Token::Var(ref v) => match v.var {
+                            Some(ref name) => if name == desired_label {
+                                return Some(i);
+                            },
+                            _ => ()
+                        },
+                        _ => ()
+                    },
+                    _ => ()
                 }
             }
             None
@@ -396,7 +351,7 @@ pub mod macaroni {
                 Some(ref x) => x,
                 None => panic!("map called without label")
             };
-            let lbl_idx = self.find_label(lbl, 0).expect(&format!(""));
+            let lbl_idx = self.find_label(lbl).expect(&format!(""));
             arr.sort_by(|a, b| {
                 self.vars.insert("_".to_string(),
                     Val::Arr(vec![a.clone(), b.clone()]));
@@ -460,7 +415,7 @@ pub mod macaroni {
                 Some(ref x) => x,
                 None => panic!("map called without label")
             };
-            let lbl_idx = self.find_label(lbl, 0).expect(&format!(""));
+            let lbl_idx = self.find_label(lbl).expect(&format!(""));
             Some(Variable::new_arr(arr.into_iter().map(|x| {
                 self.vars.insert("_".to_string(), x.clone());
                 self.run_tokens(lbl_idx);
@@ -477,7 +432,7 @@ pub mod macaroni {
                 Some(ref x) => x,
                 None => panic!("index called without label")
             };
-            let lbl_idx = self.find_label(lbl, 0).expect(&format!(""));
+            let lbl_idx = self.find_label(lbl).expect(&format!(""));
             Some(Variable::new_arr(arr.into_iter().enumerate().filter(|&(_, ref x)| {
                 self.vars.insert("_".to_string(), x.clone());
                 self.run_tokens(lbl_idx);
@@ -614,12 +569,21 @@ pub mod macaroni {
             Some(Variable::new_num((t.sec as f64) + (t.nsec as f64) /
                                                      1000000000f64))
         }
+
         fn set(&mut self, args: &[Variable]) -> Option<Variable> {
             self.vars.insert(args[0].clone().var.expect("cannot set a literal"),
                 args[1].clone().val);
             Some(Variable {
                 val: args[1].clone().val, var: args[0].clone().var
             })
+        }
+
+        fn goto(&mut self, args: &[Variable]) -> Option<Variable> {
+            unimplemented!()
+        }
+
+        fn return_(&mut self, _: &[Variable]) -> Option<Variable> {
+            unimplemented!()
         }
 
         fn arr_to_string(arr: &Vec<Val>) -> String {
