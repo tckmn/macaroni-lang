@@ -157,6 +157,9 @@ pub mod macaroni {
                         "transpose" => Token::Op {
                             func: Rc::new(Macaroni::transpose), arity: 1
                         },
+                        "flatten" => Token::Op {
+                            func: Rc::new(Macaroni::flatten), arity: 2
+                        },
                         "frombase" => Token::Op {
                             func: Rc::new(Macaroni::frombase), arity: 2
                         },
@@ -528,6 +531,30 @@ pub mod macaroni {
             } else {
                 Some(Variable::new_arr(vec![]))
             }
+        }
+
+        fn flatten(&mut self, args: &[Variable]) -> Option<Variable> {
+            let mut arr = match args[0].val {
+                Val::Arr(ref a) => a.clone(),
+                Val::Num(_) => panic!("flatten called with Num")
+            };
+            let n = match args[1].val {
+                Val::Num(n) => n as usize,
+                Val::Arr(_) => panic!("flatten called with Arr")
+            };
+            for _ in 0..if n == 0 { usize::max_value() } else { n } {
+                let mut tmp = Vec::<Val>::new();
+                let mut found_arr = false;
+                for val in arr {
+                    match val {
+                        Val::Arr(a) => { found_arr = true; tmp.extend(a); },
+                        Val::Num(n) => tmp.push(Val::Num(n))
+                    }
+                }
+                arr = tmp;
+                if !found_arr { break }
+            }
+            Some(Variable::new_arr(arr))
         }
 
         fn frombase(&mut self, args: &[Variable]) -> Option<Variable> {
