@@ -154,6 +154,9 @@ pub mod macaroni {
                         "length" => Token::Op {
                             func: Rc::new(Macaroni::length), arity: 1
                         },
+                        "transpose" => Token::Op {
+                            func: Rc::new(Macaroni::transpose), arity: 1
+                        },
                         "frombase" => Token::Op {
                             func: Rc::new(Macaroni::frombase), arity: 2
                         },
@@ -501,6 +504,30 @@ pub mod macaroni {
                 Val::Arr(ref a) => a.len() as f64,
                 Val::Num(_) => panic!("length called with Num")
             }))
+        }
+
+        fn transpose(&mut self, args: &[Variable]) -> Option<Variable> {
+            let arr = match args[0].val {
+                Val::Arr(ref a) => a.clone(),
+                Val::Num(_) => panic!("transpose called with Num")
+            };
+            if let Some(max_len) = arr.iter().map(|x|
+                match x {
+                    &Val::Arr(ref a) => a.len(),
+                    &Val::Num(_) => panic!("transpose called with non-2D Arr")
+                }
+            ).max() {
+                Some(Variable::new_arr((0..max_len).map(|i|
+                    Val::Arr(arr.iter().filter_map(|x|
+                        match x {
+                            &Val::Arr(ref a) => a,
+                            &Val::Num(_) => unreachable!()
+                        }.get(i).map(|val| val.clone())
+                    ).collect())
+                ).collect()))
+            } else {
+                Some(Variable::new_arr(vec![]))
+            }
         }
 
         fn frombase(&mut self, args: &[Variable]) -> Option<Variable> {
