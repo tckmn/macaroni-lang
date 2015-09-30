@@ -325,6 +325,7 @@ pub mod macaroni {
                     let (base, mut ipart, mut fpart) =
                         (m as i64, n.floor() as i64, n - n.floor());
                     let neg = ipart < 0;
+                    if neg { ipart = -ipart; }
 
                     // convert integer part
                     let mut nb = String::new();
