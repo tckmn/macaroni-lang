@@ -22,7 +22,7 @@ However, it also has:
 
 ## Operators
 
-Macaroni has all of 22 operators.
+Macaroni has all of 25 operators.
 
 ### Number operators
 
@@ -54,6 +54,9 @@ Macaroni has all of 22 operators.
 - `-` -> `n`: rand (`[0,1)`)
 - `-` -> `n`: time
 - `v*` -> `-`: set
+- `l` -> `-`: label
+- `l` -> `-`: goto
+- `-` -> `-`: return
 
 ## Syntax
 
@@ -63,27 +66,16 @@ However, the way Macaroni calls operators is slightly more unique. Each operator
 
 Since each operator has its own arity, there is no ambiguity with this syntax, and a simple recursive parser can be used.
 
-## Control flow
-
-Macaroni has two methods of control flow: label and goto.
-
-- Labels are denoted by `/labelname`. They can exist anywhere before or after a
-  complete statement.
-
-- Gotos are `\labelname`. They are allowed in the same places as labels are.
-  Additionally, a goto without a label name (simply ``\``) will act as a
-  "return" and jump back to the last place a goto was called from.
-
 ## Common operations / combinations
 
-Since Macaroni only has 22 operators, naturally there are tons of them that
+Since Macaroni only has 25 operators, naturally there are tons of them that
 have been left out. Here are some implementations of common functions that you
 would expect to find in other languages.
 
 - Absolute value of `x`
 
-        map slice " " 0 x 1 a
-        /a set x multiply x -1 \
+        map slice " " 0 x 1 a return
+        label a set x multiply x -1 return
 
     A cleverer version that squares and then square roots the number:
 
@@ -95,12 +87,13 @@ would expect to find in other languages.
 
 - A "while loop" ("calls" `func` while `x` is equal to `0`)
 
-        /WhileLoop
+        label loop
             map
                 map slice " " x add x 1 1 func
-                WhileLoop
+                loop
+        return
 
-        /func <stuff> \
+        label func <stuff> return
 
 ## Why "macaroni"?
 
