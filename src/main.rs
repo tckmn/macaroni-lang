@@ -31,7 +31,7 @@ fn main() {
     if matches.opt_present("h") {
         usage(&program, opts);
     } else if matches.opt_present("v") {
-        println!("version 0.0.0 (no official release)");
+        println!("version 0.0.1 (alpha)");
     } else if matches.opt_present("i") {
         loop {
             print!(">>> ");
