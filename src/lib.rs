@@ -561,7 +561,7 @@ pub mod macaroni {
         fn frombase(&mut self, args: &[Variable]) -> Option<Variable> {
             match args[0].val { Val::Arr(ref s) => {
                 match args[1].val { Val::Num(n) => {
-                    let (base, mut nb) = (n as i64, Macaroni::arr_to_string(&s));
+                    let (base, mut nb) = (n, Macaroni::arr_to_string(&s));
 
                     // handle negatives and decimals
                     let neg = nb.starts_with("-");
@@ -572,7 +572,7 @@ pub mod macaroni {
                         dot_pos - 1
                     } else {
                         nb.len() - 1
-                    };
+                    } as i32;
 
                     // convert cleaned-up string
                     let mut n = 0f64;
@@ -581,7 +581,7 @@ pub mod macaroni {
                             .next().unwrap() as u8;
                         let digit = DIGITS.iter().position(|d| *d == c)
                             .expect(&format!("unrecognized digit {}", c)) as f64;
-                        n += digit * base.pow((sub_pos - i) as u32) as f64;
+                        n += digit * base.powi(sub_pos - i as i32) as f64;
                     }
 
                     Some(Variable::new_num(n))
