@@ -29,7 +29,7 @@ Macaroni has all of 25 operators.
 - `nn` -> `n`: add
 - `nn` -> `n`: multiply
 - `n` -> `n`: floor
-- `nn` -> `n`: power
+- `nn` -> `n`: pow
 - `nn` -> `a`: tobase (\*returns an array-"string")
 
 ### Array operators
