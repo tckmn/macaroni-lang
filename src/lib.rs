@@ -6,6 +6,7 @@ pub mod macaroni {
     use time;
     use std::collections::HashMap;
     use std::io;
+    use std::io::Write;
     use std::rc::Rc;
 
     const DIGITS: &'static [u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -609,10 +610,17 @@ pub mod macaroni {
 
         fn print(&mut self, args: &[Variable]) -> Option<Variable> {
             let ref x = args[0];
-            print!("{}", match x.val {
-                Val::Arr(ref s) => Macaroni::arr_to_string(s),
+            match x.val {
+                Val::Arr(ref s) => {
+                    let stdout = io::stdout();
+                    stdout.lock().write(s.iter().map(|y|
+                        match y {
+                            &Val::Num(n) => n as u8,
+                            &Val::Arr(_) => panic!("print called with non-string"),
+                        }).collect::<Vec<u8>>().as_slice()).unwrap();
+                },
                 Val::Num(_) => panic!("print called with Num")
-            });
+            };
             None
         }
 
